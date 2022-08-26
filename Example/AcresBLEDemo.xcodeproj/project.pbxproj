@@ -1,0 +1,422 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 55;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		487D88002892C24900FA3070 /* AcresBLEDemoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 487D87FF2892C24900FA3070 /* AcresBLEDemoApp.swift */; };
+		487D88042892C24A00FA3070 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 487D88032892C24A00FA3070 /* Assets.xcassets */; };
+		487D88072892C24A00FA3070 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 487D88062892C24A00FA3070 /* Preview Assets.xcassets */; };
+		487D88102892C28700FA3070 /* MainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 487D880F2892C28700FA3070 /* MainView.swift */; };
+		487D88122892C2AB00FA3070 /* CardControllerViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 487D88112892C2AB00FA3070 /* CardControllerViewModel.swift */; };
+		48D76D9128AF9585004DF391 /* SlotAndTableControllerViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48D76D9028AF9585004DF391 /* SlotAndTableControllerViewModel.swift */; };
+		48D76D9428AFA88C004DF391 /* ErrorHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48D76D9328AFA88C004DF391 /* ErrorHandler.swift */; };
+		48E8AB4428B8E88300D0F06A /* AcresBLE in Frameworks */ = {isa = PBXBuildFile; productRef = 48E8AB4328B8E88300D0F06A /* AcresBLE */; };
+		48FBEBB8289418AD00F259EC /* CardControllerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48FBEBB7289418AD00F259EC /* CardControllerView.swift */; };
+		48FBEBBA289418D300F259EC /* SlotAndTableControllerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48FBEBB9289418D300F259EC /* SlotAndTableControllerView.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		487D87FC2892C24900FA3070 /* AcresBLEDemo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AcresBLEDemo.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		487D87FF2892C24900FA3070 /* AcresBLEDemoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AcresBLEDemoApp.swift; sourceTree = "<group>"; };
+		487D88032892C24A00FA3070 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		487D88062892C24A00FA3070 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
+		487D880F2892C28700FA3070 /* MainView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainView.swift; sourceTree = "<group>"; };
+		487D88112892C2AB00FA3070 /* CardControllerViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardControllerViewModel.swift; sourceTree = "<group>"; };
+		48D76D9028AF9585004DF391 /* SlotAndTableControllerViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SlotAndTableControllerViewModel.swift; sourceTree = "<group>"; };
+		48D76D9328AFA88C004DF391 /* ErrorHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorHandler.swift; sourceTree = "<group>"; };
+		48E8AB4128B8E86F00D0F06A /* acres_bt_sdk_ios */ = {isa = PBXFileReference; lastKnownFileType = wrapper; name = acres_bt_sdk_ios; path = ..; sourceTree = "<group>"; };
+		48FBEBB7289418AD00F259EC /* CardControllerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardControllerView.swift; sourceTree = "<group>"; };
+		48FBEBB9289418D300F259EC /* SlotAndTableControllerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SlotAndTableControllerView.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		487D87F92892C24900FA3070 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				48E8AB4428B8E88300D0F06A /* AcresBLE in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		487D87F32892C24900FA3070 = {
+			isa = PBXGroup;
+			children = (
+				48E8AB4028B8E86F00D0F06A /* Packages */,
+				487D87FE2892C24900FA3070 /* AcresBLEDemo */,
+				487D87FD2892C24900FA3070 /* Products */,
+				48E8AB4228B8E88300D0F06A /* Frameworks */,
+			);
+			sourceTree = "<group>";
+		};
+		487D87FD2892C24900FA3070 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				487D87FC2892C24900FA3070 /* AcresBLEDemo.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		487D87FE2892C24900FA3070 /* AcresBLEDemo */ = {
+			isa = PBXGroup;
+			children = (
+				48D76D9228AFA872004DF391 /* Error */,
+				48FBEBB62894189B00F259EC /* ViewModel */,
+				48FBEBB52894189400F259EC /* View */,
+				487D87FF2892C24900FA3070 /* AcresBLEDemoApp.swift */,
+				487D88032892C24A00FA3070 /* Assets.xcassets */,
+				487D88052892C24A00FA3070 /* Preview Content */,
+			);
+			path = AcresBLEDemo;
+			sourceTree = "<group>";
+		};
+		487D88052892C24A00FA3070 /* Preview Content */ = {
+			isa = PBXGroup;
+			children = (
+				487D88062892C24A00FA3070 /* Preview Assets.xcassets */,
+			);
+			path = "Preview Content";
+			sourceTree = "<group>";
+		};
+		48D76D9228AFA872004DF391 /* Error */ = {
+			isa = PBXGroup;
+			children = (
+				48D76D9328AFA88C004DF391 /* ErrorHandler.swift */,
+			);
+			path = Error;
+			sourceTree = "<group>";
+		};
+		48E8AB4028B8E86F00D0F06A /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				48E8AB4128B8E86F00D0F06A /* acres_bt_sdk_ios */,
+			);
+			name = Packages;
+			sourceTree = "<group>";
+		};
+		48E8AB4228B8E88300D0F06A /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		48FBEBB52894189400F259EC /* View */ = {
+			isa = PBXGroup;
+			children = (
+				487D880F2892C28700FA3070 /* MainView.swift */,
+				48FBEBB7289418AD00F259EC /* CardControllerView.swift */,
+				48FBEBB9289418D300F259EC /* SlotAndTableControllerView.swift */,
+			);
+			path = View;
+			sourceTree = "<group>";
+		};
+		48FBEBB62894189B00F259EC /* ViewModel */ = {
+			isa = PBXGroup;
+			children = (
+				487D88112892C2AB00FA3070 /* CardControllerViewModel.swift */,
+				48D76D9028AF9585004DF391 /* SlotAndTableControllerViewModel.swift */,
+			);
+			path = ViewModel;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		487D87FB2892C24900FA3070 /* AcresBLEDemo */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 487D880A2892C24A00FA3070 /* Build configuration list for PBXNativeTarget "AcresBLEDemo" */;
+			buildPhases = (
+				487D87F82892C24900FA3070 /* Sources */,
+				487D87F92892C24900FA3070 /* Frameworks */,
+				487D87FA2892C24900FA3070 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = AcresBLEDemo;
+			packageProductDependencies = (
+				48E8AB4328B8E88300D0F06A /* AcresBLE */,
+			);
+			productName = AcresBLEDemo;
+			productReference = 487D87FC2892C24900FA3070 /* AcresBLEDemo.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		487D87F42892C24900FA3070 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1330;
+				LastUpgradeCheck = 1330;
+				TargetAttributes = {
+					487D87FB2892C24900FA3070 = {
+						CreatedOnToolsVersion = 13.3.1;
+					};
+				};
+			};
+			buildConfigurationList = 487D87F72892C24900FA3070 /* Build configuration list for PBXProject "AcresBLEDemo" */;
+			compatibilityVersion = "Xcode 13.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 487D87F32892C24900FA3070;
+			packageReferences = (
+			);
+			productRefGroup = 487D87FD2892C24900FA3070 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				487D87FB2892C24900FA3070 /* AcresBLEDemo */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		487D87FA2892C24900FA3070 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				487D88072892C24A00FA3070 /* Preview Assets.xcassets in Resources */,
+				487D88042892C24A00FA3070 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		487D87F82892C24900FA3070 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				487D88102892C28700FA3070 /* MainView.swift in Sources */,
+				48D76D9128AF9585004DF391 /* SlotAndTableControllerViewModel.swift in Sources */,
+				48D76D9428AFA88C004DF391 /* ErrorHandler.swift in Sources */,
+				48FBEBBA289418D300F259EC /* SlotAndTableControllerView.swift in Sources */,
+				487D88002892C24900FA3070 /* AcresBLEDemoApp.swift in Sources */,
+				48FBEBB8289418AD00F259EC /* CardControllerView.swift in Sources */,
+				487D88122892C2AB00FA3070 /* CardControllerViewModel.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		487D88082892C24A00FA3070 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.4;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		487D88092892C24A00FA3070 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.4;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		487D880B2892C24A00FA3070 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "\"AcresBLEDemo/Preview Content\"";
+				DEVELOPMENT_TEAM = 84HSFHUXUP;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jozomostarac.AcresBLEDemo;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		487D880C2892C24A00FA3070 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "\"AcresBLEDemo/Preview Content\"";
+				DEVELOPMENT_TEAM = 84HSFHUXUP;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jozomostarac.AcresBLEDemo;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		487D87F72892C24900FA3070 /* Build configuration list for PBXProject "AcresBLEDemo" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				487D88082892C24A00FA3070 /* Debug */,
+				487D88092892C24A00FA3070 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		487D880A2892C24A00FA3070 /* Build configuration list for PBXNativeTarget "AcresBLEDemo" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				487D880B2892C24A00FA3070 /* Debug */,
+				487D880C2892C24A00FA3070 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		48E8AB4328B8E88300D0F06A /* AcresBLE */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = AcresBLE;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 487D87F42892C24900FA3070 /* Project object */;
+}
