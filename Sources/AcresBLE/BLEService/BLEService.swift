@@ -61,6 +61,12 @@ class BLEService: NSObject, BLEServiceProtocol, PeripheralIdentificationProtocol
 
     func connect(to device: CBPeripheralProtocol) {
         guard let device = device as? CBPeripheral else { return }
+        
+        if let peripheral = peripheral,
+            peripheral.state != .disconnected {
+            return
+        }
+        
         peripheral = device
         central.centralManager.connect(device, options: nil)
         Logger.debug("connect to device: \(String(describing: peripheral?.identifier))")
