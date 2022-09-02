@@ -13,6 +13,10 @@ public class SlotAndTableController: SlotAndTableControllerProtocol, CommonContr
     init(service: BLEServiceProtocol = BLEService()) {
         self.service = service
     }
+        
+    internal var rssiLimit: Int {
+        return -45 // experiment based value
+    }
     
     // Internal state
     private var onFindDevice: ((Result<String, AcresBLEError>) -> Void)?
