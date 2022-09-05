@@ -19,6 +19,7 @@ public class ElectronicCardInController: ElectronicCardInControllerProtocol, Com
     private var onInsertPlayerCard: ((Result<Void, AcresBLEError>) -> Void)?
     private var insertionState: Bool = false
     private var onRemovePlayerCard: ((Result<Void, AcresBLEError>) -> Void)?
+    private var disconnectInitiated: Bool = false
     
     // Timeout Task
     internal lazy var timeOutTask = DispatchWorkItem { [weak self] in
@@ -63,7 +64,7 @@ public class ElectronicCardInController: ElectronicCardInControllerProtocol, Com
 
         service.didDisconnect = { [weak self] peripheral, error in
             guard let self = self else { return }
-            if self.insertionState {
+            if !self.disconnectInitiated {
                 self.onInsertPlayerCard?(.failure(.didDisconnect(error)))
             }
             self.resetState()
@@ -119,7 +120,7 @@ public class ElectronicCardInController: ElectronicCardInControllerProtocol, Com
                     self.onInsertPlayerCard?(.success(()))
                 case false:
                     self.onRemovePlayerCard?(.success(()))
-                    self.service.cancelCurrentPeripheralConnection()
+                    self.initiateDisconnect()
                 }
             }
         }
@@ -174,10 +175,16 @@ public class ElectronicCardInController: ElectronicCardInControllerProtocol, Com
         service.cancelCurrentPeripheralConnection()
     }
     
+    private func initiateDisconnect() {
+        disconnectInitiated = true
+        service.cancelCurrentPeripheralConnection()
+    }
+    
     private func resetState() {
         currentCardId = nil
         onInsertPlayerCard = nil
         insertionState = false
         onRemovePlayerCard = nil
+        disconnectInitiated = false
     }
 }

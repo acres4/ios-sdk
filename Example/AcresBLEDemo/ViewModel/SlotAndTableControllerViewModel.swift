@@ -14,7 +14,7 @@ class SlotAndTableControllerViewModel: ObservableObject {
     }
     
     enum FindDeviceMode {
-        case fund, cashout
+        case fund, cashout, cancelCashOut
     }
     
     private let errorHandler: ErrorHandler = ErrorHandler.shared
@@ -48,6 +48,8 @@ class SlotAndTableControllerViewModel: ObservableObject {
                     self.state = .fund
                 case .cashout:
                     self.cashOutTable()
+                case .cancelCashOut:
+                    self.cancelCashOut()
                 }
             case .failure(let error):
                 print("DEBUG slotAndTableController.findDevice error: \(error)")
@@ -139,10 +141,12 @@ class SlotAndTableControllerViewModel: ObservableObject {
     private func setInitialState(delayed: Bool = false) {
         if delayed {
             DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                self.disconnectFromDevice()
+                self.sas = nil
+                self.state = .disconnected
             }
         } else {
-            disconnectFromDevice()
+            self.sas = nil
+            self.state = .disconnected
         }
     }
 }

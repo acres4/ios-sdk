@@ -13,6 +13,10 @@ public class SlotAndTableController: SlotAndTableControllerProtocol, CommonContr
     init(service: BLEServiceProtocol = BLEService()) {
         self.service = service
     }
+        
+    internal var rssiLimit: Int {
+        return -45 // experiment based value
+    }
     
     // Internal state
     private var onFindDevice: ((Result<String, AcresBLEError>) -> Void)?
@@ -100,8 +104,7 @@ public class SlotAndTableController: SlotAndTableControllerProtocol, CommonContr
             return
         }
         onDisconnectFromDevice = completion
-        disconnectInitiated = true
-        service.cancelCurrentPeripheralConnection()
+        initiateDisconnect()
     }
     
     // MARK: - CommonControllerProtocol
@@ -119,8 +122,10 @@ public class SlotAndTableController: SlotAndTableControllerProtocol, CommonContr
 
         service.didDisconnect = { [weak self] peripheral, error in
             if let initated = self?.disconnectInitiated, initated == true {
+                Logger.debug("didDisconnect --> initiated")
                 self?.onDisconnectFromDevice?(.success(()))
             } else {
+                Logger.debug("didDisconnect --> NOT initiated")
                 self?.onFindDevice?(.failure(.didDisconnect(error)))
             }
             self?.resetState()
@@ -150,6 +155,7 @@ public class SlotAndTableController: SlotAndTableControllerProtocol, CommonContr
                         if amount > 0 {
                             self.onFundTable?(.success(serial))
                             self.amountRequested = nil
+                            self.initiateDisconnect()
                         } else {
                             // do nothing here, received amount should come through the .amountCharacteristic
                         }
@@ -175,10 +181,12 @@ public class SlotAndTableController: SlotAndTableControllerProtocol, CommonContr
                         guard amount != -1 else {
                             self.onCashOutTable?(.failure(.dealerCanceledCashout))
                             self.onFundTable?(.failure(.dealerCanceledFunding))
+                            self.initiateDisconnect()
                             return
                         }
                         
                         self.onCashOutTable?(.success(amount))
+//                        self.initiateDisconnect()
                     }
                 }
 
@@ -207,6 +215,7 @@ public class SlotAndTableController: SlotAndTableControllerProtocol, CommonContr
                 }
                 // cashout canceled
                 self.onCancelCashOut?(.success(()))
+                self.initiateDisconnect()
             }
         }
     }
@@ -260,6 +269,11 @@ public class SlotAndTableController: SlotAndTableControllerProtocol, CommonContr
         let one: String = "1" // write 1 to the .cancelCharacteristic
         guard let data = one.data(using: .utf8)?.base64EncodedData() else { return }
         service.writeDataOperation(data, for: .cancelCharacteristic)
+    }
+    
+    private func initiateDisconnect() {
+        disconnectInitiated = true
+        service.cancelCurrentPeripheralConnection()
     }
     
     private func resetState() {
