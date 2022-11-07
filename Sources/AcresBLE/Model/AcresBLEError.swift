@@ -1,6 +1,6 @@
 //
 //  AcresBLEError.swift
-//  
+//
 //
 //  Created by Jozo Mostarac on 22.07.2022..
 //
@@ -15,6 +15,8 @@ public enum AcresBLEError: Error {
     case playerCardTrack1FailedToRecord
     case playerCardTrack2FailedToRecord
     case playerCardInsertFail
+    case invalidFormatTrackId1
+    case invalidFormatTrackId2
     case dealerCanceledFunding
     case dealerCanceledCashout
     case notConnected
@@ -56,6 +58,10 @@ extension AcresBLEError: LocalizedError {
             return "Device disconnected"
         case .unknown:
             return "Connection error occurred, please try again"
+        case .invalidFormatTrackId1:
+            return "Card ID is too long for the player card track 1. The data should be less than 79 bytes control characters"
+        case .invalidFormatTrackId2:
+            return "Card ID is too long for the player card track 2. The data should be less than 40 bytes control characters"
         }
     }
 }

@@ -13,7 +13,7 @@ SDK is separated into two controller, each one consisting of interconnected meth
 The `insertPlayerCard` method cards a player into an EGM. Once called the method will find a BLE device advertising the machine information service with signal strength greater than -65. The `ElectronicCardInController`'s `BLEService` will then read the player card busy characteristic. If `true` the method will return a `AcresBLEError` to the user, this means there is a physical card inserted into the PID. If `false`, the method will write the passed string to the `.playerCardTrack1Characteristic` and return serial string via the success case to the user. If the device is not found it will timeout after `CommonControllerProtocol.timeOutValue` seconds.
 
 ``` swift
-func insertPlayerCard(id: String, completion: @escaping (Result<Void, AcresBLEError>) -> Void)
+func insertPlayerCard(id: String, cardTrack: CardTrack, completion: @escaping (Result<Void, AcresBLEError>) -> Void)
 ```
   
 The `removePlayerCard ` method cards out a player from an EGM. Once called the method will write `false` to the `.playerCardInsertCharacteristic`. After writing it will return success case to the user.In case of failure it will return AcresBLEError.
@@ -69,12 +69,15 @@ class ViewModel: ObservableObject {
     private let errorHandler: ErrorHandler = ErrorHandler.shared
     private let electronicCardInController: ElectronicCardInControllerProtocol = AcresBLE.shared.electronicCardInController
     @Published var state: State = .removed
+    
+    @Published var cardTrack: CardTrack = .one
+    @Published var cardID: String = ""
 
     /* ... */
     
-    func insertPlayerCard(id: String = "") {
+    func insertPlayerCard() {
         state = .inserting
-        electronicCardInController.insertPlayerCard(id: id) { [weak self] result in
+        electronicCardInController.insertPlayerCard(id: cardID, cardTrack: cardTrack) { [weak self] result in
             guard let self = self else { return }
             
             switch result {
