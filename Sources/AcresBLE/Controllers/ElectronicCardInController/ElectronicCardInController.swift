@@ -18,9 +18,11 @@ public class ElectronicCardInController: ElectronicCardInControllerProtocol, Com
     private var currentCardId: String?
     private var cardTrack: CardTrack?
     private var onInsertPlayerCard: ((Result<Void, AcresBLEError>) -> Void)?
+    private var pendingInsertOutcome: Result<Void, AcresBLEError>?
 
     // Remove-flow state
     private var onRemovePlayerCard: ((Result<Void, AcresBLEError>) -> Void)?
+    private var pendingRemoveOutcome: Result<Void, AcresBLEError>?
 
     // Shared
     private var disconnectInitiated: Bool = false
@@ -65,16 +67,12 @@ public class ElectronicCardInController: ElectronicCardInControllerProtocol, Com
 
         service.didDisconnect = { [weak self] _, error in
             guard let self = self else { return }
-            if !self.disconnectInitiated {
-                self.fireInsertCompletion(.failure(.didDisconnect(error)))
-            }
-            self.resetState()
+            self.handleDisconnectForInsertFlow(error: error)
         }
 
         service.didFailToConnect = { [weak self] _, error in
             guard let self = self else { return }
-            self.fireInsertCompletion(.failure(.didFailToConnect(error)))
-            self.resetState()
+            self.handleFailToConnectForInsertFlow(error: error)
         }
 
         service.didUpdateValueFor = { [weak self] _, value, uuid, error in
@@ -82,14 +80,12 @@ public class ElectronicCardInController: ElectronicCardInControllerProtocol, Com
 
             if let error = error {
                 Logger.error(error.localizedDescription)
-                self.fireInsertCompletion(.failure(.generic(error)))
-                self.initiateDisconnect()
+                self.terminateInsertFlow(with: .failure(.generic(error)))
                 return
             }
 
             if (value?[0].toBool ?? true) {
-                self.fireInsertCompletion(.failure(.playerCardBusy))
-                self.initiateDisconnect()
+                self.terminateInsertFlow(with: .failure(.playerCardBusy))
                 return
             }
 
@@ -97,13 +93,15 @@ public class ElectronicCardInController: ElectronicCardInControllerProtocol, Com
                 let cardTrack = self.cardTrack,
                 let currentCardId = self.currentCardId,
                 let cardIdData = currentCardId.data(using: .utf8)
-            else { return }
+            else {
+                self.terminateInsertFlow(with: .failure(.unknown))
+                return
+            }
 
             Logger.debug("Card id size in bytes: \(cardIdData.count)")
             guard cardIdData.count < cardTrack.maxBytesSizeToWrite else {
                 Logger.debug("Card ID too long for track \(cardTrack.rawValue); max \(cardTrack.maxBytesSizeToWrite) bytes")
-                self.fireInsertCompletion(.failure(cardTrack.maxBytesSizeToWriteError))
-                self.initiateDisconnect()
+                self.terminateInsertFlow(with: .failure(cardTrack.maxBytesSizeToWriteError))
                 return
             }
 
@@ -115,8 +113,7 @@ public class ElectronicCardInController: ElectronicCardInControllerProtocol, Com
 
             if uuid == .playerCardTrack1Characteristic {
                 if error != nil {
-                    self.fireInsertCompletion(.failure(.playerCardTrack1FailedToRecord))
-                    self.initiateDisconnect()
+                    self.terminateInsertFlow(with: .failure(.playerCardTrack1FailedToRecord))
                     return
                 }
                 self.writeToPlayerCardInsert(true)
@@ -125,8 +122,7 @@ public class ElectronicCardInController: ElectronicCardInControllerProtocol, Com
 
             if uuid == .playerCardTrack2Characteristic {
                 if error != nil {
-                    self.fireInsertCompletion(.failure(.playerCardTrack2FailedToRecord))
-                    self.initiateDisconnect()
+                    self.terminateInsertFlow(with: .failure(.playerCardTrack2FailedToRecord))
                     return
                 }
                 self.writeToPlayerCardInsert(true)
@@ -135,14 +131,13 @@ public class ElectronicCardInController: ElectronicCardInControllerProtocol, Com
 
             if uuid == .playerCardInsertCharacteristic {
                 if error != nil {
-                    self.fireInsertCompletion(.failure(.playerCardInsertFail))
-                    self.initiateDisconnect()
+                    self.terminateInsertFlow(with: .failure(.playerCardInsertFail))
                     return
                 }
-                // Disconnect after every successful insert so the EGM is released
-                // even if the player walks away with the card still inserted.
-                self.fireInsertCompletion(.success(()))
-                self.initiateDisconnect()
+                // Success: disconnect first, fire success callback only after didDisconnect.
+                // This serializes ops so the next call (e.g. removePlayerCard) doesn't
+                // race the in-flight disconnect.
+                self.terminateInsertFlow(with: .success(()))
             }
         }
     }
@@ -158,16 +153,12 @@ public class ElectronicCardInController: ElectronicCardInControllerProtocol, Com
 
         service.didDisconnect = { [weak self] _, error in
             guard let self = self else { return }
-            if !self.disconnectInitiated {
-                self.fireRemoveCompletion(.failure(.didDisconnect(error)))
-            }
-            self.resetState()
+            self.handleDisconnectForRemoveFlow(error: error)
         }
 
         service.didFailToConnect = { [weak self] _, error in
             guard let self = self else { return }
-            self.fireRemoveCompletion(.failure(.didFailToConnect(error)))
-            self.resetState()
+            self.handleFailToConnectForRemoveFlow(error: error)
         }
 
         service.didUpdateValueFor = { _, _, _, _ in }
@@ -176,21 +167,113 @@ public class ElectronicCardInController: ElectronicCardInControllerProtocol, Com
             guard let self = self, uuid == .playerCardInsertCharacteristic else { return }
 
             if let error = error {
-                self.fireRemoveCompletion(.failure(.generic(error)))
-                self.initiateDisconnect()
+                self.terminateRemoveFlow(with: .failure(.generic(error)))
                 return
             }
-            self.fireRemoveCompletion(.success(()))
-            self.initiateDisconnect()
+            self.terminateRemoveFlow(with: .success(()))
+        }
+    }
+
+    // MARK: - Disconnect / fail-to-connect handlers
+    //
+    // Three cases per flow:
+    //   1. pendingOutcome != nil — terminate*Flow set an outcome and triggered the
+    //      disconnect. Fire it now and reset.
+    //   2. pendingOutcome == nil, disconnectInitiated == false — the peripheral
+    //      dropped on its own (out of range, EGM rebooted). Fire .didDisconnect
+    //      failure and reset.
+    //   3. pendingOutcome == nil, disconnectInitiated == true — stale disconnect
+    //      from a *prior* op whose handlers were replaced before its disconnect
+    //      completed. Don't fire anything, don't reset our new state — just clear
+    //      the flag so our own future disconnect path works.
+
+    private func handleDisconnectForInsertFlow(error: Error?) {
+        if let outcome = pendingInsertOutcome {
+            pendingInsertOutcome = nil
+            fireInsertCompletion(outcome)
+            resetState()
+            return
+        }
+        if !disconnectInitiated {
+            fireInsertCompletion(.failure(.didDisconnect(error)))
+            resetState()
+            return
+        }
+        disconnectInitiated = false
+    }
+
+    private func handleFailToConnectForInsertFlow(error: Error?) {
+        if let outcome = pendingInsertOutcome {
+            pendingInsertOutcome = nil
+            fireInsertCompletion(outcome)
+            resetState()
+            return
+        }
+        if onInsertPlayerCard != nil {
+            fireInsertCompletion(.failure(.didFailToConnect(error)))
+            resetState()
+        }
+    }
+
+    private func handleDisconnectForRemoveFlow(error: Error?) {
+        if let outcome = pendingRemoveOutcome {
+            pendingRemoveOutcome = nil
+            fireRemoveCompletion(outcome)
+            resetState()
+            return
+        }
+        if !disconnectInitiated {
+            fireRemoveCompletion(.failure(.didDisconnect(error)))
+            resetState()
+            return
+        }
+        disconnectInitiated = false
+    }
+
+    private func handleFailToConnectForRemoveFlow(error: Error?) {
+        if let outcome = pendingRemoveOutcome {
+            pendingRemoveOutcome = nil
+            fireRemoveCompletion(outcome)
+            resetState()
+            return
+        }
+        if onRemovePlayerCard != nil {
+            fireRemoveCompletion(.failure(.didFailToConnect(error)))
+            resetState()
+        }
+    }
+
+    // MARK: - Terminate helpers
+    //
+    // The contract: the user's completion handler always fires after the BLE
+    // connection has been fully torn down. If a peripheral is connected (or
+    // mid-connection), defer the outcome to didDisconnect/didFailToConnect. If no
+    // peripheral exists yet (e.g. scan timeout before any device was discovered),
+    // fire immediately.
+
+    private func terminateInsertFlow(with outcome: Result<Void, AcresBLEError>) {
+        if let p = service.getPeripheral(), p.state != .disconnected {
+            pendingInsertOutcome = outcome
+            initiateDisconnect()
+        } else {
+            fireInsertCompletion(outcome)
+            resetState()
+        }
+    }
+
+    private func terminateRemoveFlow(with outcome: Result<Void, AcresBLEError>) {
+        if let p = service.getPeripheral(), p.state != .disconnected {
+            pendingRemoveOutcome = outcome
+            initiateDisconnect()
+        } else {
+            fireRemoveCompletion(outcome)
+            resetState()
         }
     }
 
     // MARK: - Scan / connect
 
     private func beginScan() {
-        // Always scan fresh — disconnect-after-success means we never carry over a connection.
-        service.startScanning(allowDuplicates: true)
-
         service.discovered = { [weak self] peripheral, _, rssi in
             guard let self = self else { return }
             if rssi >= self.rssiLimit {
@@ -198,29 +281,26 @@ public class ElectronicCardInController: ElectronicCardInControllerProtocol, Com
             }
         }
 
+        service.startScanning(allowDuplicates: true)
+
         timeOutTask = DispatchWorkItem { [weak self] in
             guard let self = self else { return }
             if self.service.isScanning() {
                 self.service.stopScanning()
             }
-            // Abort any in-flight connection so post-timeout discovery callbacks don't fire writes.
-            self.disconnectInitiated = true
-            self.service.cancelCurrentPeripheralConnection()
-
             if self.onInsertPlayerCard != nil {
-                self.fireInsertCompletion(.failure(.scanTimeout))
+                self.terminateInsertFlow(with: .failure(.scanTimeout))
             } else if self.onRemovePlayerCard != nil {
-                self.fireRemoveCompletion(.failure(.scanTimeout))
+                self.terminateRemoveFlow(with: .failure(.scanTimeout))
             }
-            self.resetState()
         }
         scheduleTimeout(task: timeOutTask)
     }
 
     // MARK: - Helpers
 
-    // Fire-and-clear: nil the callback the moment we invoke it so any later disconnect/timeout
-    // path is naturally a no-op. Removes whole class of double-callback bugs.
+    // Fire-and-clear: nil the callback the moment we invoke it so any later
+    // unexpected event becomes a no-op.
     private func fireInsertCompletion(_ result: Result<Void, AcresBLEError>) {
         let cb = onInsertPlayerCard
         onInsertPlayerCard = nil
@@ -249,6 +329,8 @@ public class ElectronicCardInController: ElectronicCardInControllerProtocol, Com
         cardTrack = nil
         onInsertPlayerCard = nil
         onRemovePlayerCard = nil
+        pendingInsertOutcome = nil
+        pendingRemoveOutcome = nil
         disconnectInitiated = false
     }
 }
