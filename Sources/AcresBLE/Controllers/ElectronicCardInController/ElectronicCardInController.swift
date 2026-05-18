@@ -38,13 +38,25 @@ public class ElectronicCardInController: ElectronicCardInControllerProtocol, Com
         self.cardTrack = cardTrack
         onInsertPlayerCard = completion
         setupInsertFlow()
-        beginScan()
+        if let p = service.getPeripheral(), p.state == .connected {
+            // Reuse the existing connection (e.g. one left open by SlotAndTableController.findDevice).
+            // A fresh scan+connect would be a no-op because BLEService.connect early-returns when
+            // the peripheral is already connected, and no new didDiscoverCharacteristicsFor would fire.
+            service.readDataOperation(for: .playerCardBusyCharacteristic)
+        } else {
+            beginScan()
+        }
     }
 
     public func removePlayerCard(completion: @escaping (Result<Void, AcresBLEError>) -> Void) {
         onRemovePlayerCard = completion
         setupRemoveFlow()
-        beginScan()
+        if let p = service.getPeripheral(), p.state == .connected {
+            // Same reuse-existing-connection guard as insertPlayerCard.
+            writeToPlayerCardInsert(false)
+        } else {
+            beginScan()
+        }
     }
 
     // MARK: - CommonControllerProtocol (Option B: per-flow setup replaces shared setupConnection)
