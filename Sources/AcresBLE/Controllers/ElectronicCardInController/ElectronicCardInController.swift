@@ -5,6 +5,7 @@
 //  Created by Jozo Mostarac on 22.07.2022..
 //
 
+import CoreBluetooth
 import Foundation
 
 public class ElectronicCardInController: ElectronicCardInControllerProtocol, CommonControllerProtocol {
@@ -34,39 +35,52 @@ public class ElectronicCardInController: ElectronicCardInControllerProtocol, Com
     // MARK: - ElectronicCardInControllerProtocol
 
     public func insertPlayerCard(id: String, cardTrack: CardTrack, completion: @escaping (Result<Void, AcresBLEError>) -> Void) {
+        Logger.debug("insertPlayerCard called; peripheral state: \(describe(service.getPeripheral()?.state))")
         currentCardId = id
         self.cardTrack = cardTrack
         onInsertPlayerCard = completion
         setupInsertFlow()
         if let p = service.getPeripheral(), p.state == .connected {
-            // Reuse the existing connection (e.g. one left open by SlotAndTableController.findDevice).
-            // A fresh scan+connect would be a no-op because BLEService.connect early-returns when
-            // the peripheral is already connected, and no new didDiscoverCharacteristicsFor would fire.
+            Logger.debug("insertPlayerCard: reusing existing connection — read playerCardBusy")
             service.readDataOperation(for: .playerCardBusyCharacteristic)
         } else {
+            Logger.debug("insertPlayerCard: no existing connection — beginScan")
             beginScan()
         }
     }
 
     public func removePlayerCard(completion: @escaping (Result<Void, AcresBLEError>) -> Void) {
+        Logger.debug("removePlayerCard called; peripheral state: \(describe(service.getPeripheral()?.state))")
         onRemovePlayerCard = completion
         setupRemoveFlow()
         if let p = service.getPeripheral(), p.state == .connected {
-            // Same reuse-existing-connection guard as insertPlayerCard.
+            Logger.debug("removePlayerCard: reusing existing connection — write 0 to playerCardInsert")
             writeToPlayerCardInsert(false)
         } else {
+            Logger.debug("removePlayerCard: no existing connection — beginScan")
             beginScan()
         }
     }
 
-    // MARK: - CommonControllerProtocol (Option B: per-flow setup replaces shared setupConnection)
+    private func describe(_ state: CBPeripheralState?) -> String {
+        guard let state = state else { return "nil (no peripheral)" }
+        switch state {
+        case .disconnected: return "disconnected"
+        case .connecting: return "connecting"
+        case .connected: return "connected"
+        case .disconnecting: return "disconnecting"
+        @unknown default: return "unknown(\(state.rawValue))"
+        }
+    }
+
+    // CommonControllerProtocol (Option B: per-flow setup replaces shared setupConnection)
 
     internal func setupConnection() {}
     internal func startScan() {}
     internal func connect(to device: CBPeripheralProtocol) { service.connect(to: device) }
     internal func stopScan() { service.stopScanning() }
 
-    // MARK: - Flow installers
+    // Flow installers
 
     private func setupInsertFlow() {
         service.didDiscoverCharacteristicsFor = { [weak self] peripheral in
@@ -186,7 +200,7 @@ public class ElectronicCardInController: ElectronicCardInControllerProtocol, Com
         }
     }
 
-    // MARK: - Disconnect / fail-to-connect handlers
+    // Disconnect / fail-to-connect handlers
     //
     // Three cases per flow:
     //   1. pendingOutcome != nil — terminate*Flow set an outcome and triggered the
@@ -255,7 +269,7 @@ public class ElectronicCardInController: ElectronicCardInControllerProtocol, Com
         }
     }
 
-    // MARK: - Terminate helpers
+    // Terminate helpers
     //
     // The contract: the user's completion handler always fires after the BLE
     // connection has been fully torn down. If a peripheral is connected (or
@@ -283,7 +297,7 @@ public class ElectronicCardInController: ElectronicCardInControllerProtocol, Com
         }
     }
 
-    // MARK: - Scan / connect
+    // Scan / connect
 
     private func beginScan() {
         service.discovered = { [weak self] peripheral, _, rssi in
