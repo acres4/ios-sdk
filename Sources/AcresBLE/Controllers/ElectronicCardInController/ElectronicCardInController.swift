@@ -14,103 +14,100 @@ public class ElectronicCardInController: ElectronicCardInControllerProtocol, Com
         self.service = service
     }
 
-    // Internal state
+    // Insert-flow state
     private var currentCardId: String?
     private var cardTrack: CardTrack?
     private var onInsertPlayerCard: ((Result<Void, AcresBLEError>) -> Void)?
-    private var insertionState: Bool = false
+
+    // Remove-flow state
     private var onRemovePlayerCard: ((Result<Void, AcresBLEError>) -> Void)?
+
+    // Shared
     private var disconnectInitiated: Bool = false
 
-    // Timeout Task
-    internal lazy var timeOutTask = DispatchWorkItem { [weak self] in
-        if self?.service.isScanning() ?? false {
-            self?.service.stopScanning()
-            self?.onInsertPlayerCard?(.failure(.scanTimeout))
-        }
-    }
+    // Per-call timeout. DispatchWorkItem can only be scheduled once, so we replace
+    // it on every public call instead of using a `lazy var`.
+    internal var timeOutTask: DispatchWorkItem = DispatchWorkItem(block: {})
 
     // MARK: - ElectronicCardInControllerProtocol
 
     public func insertPlayerCard(id: String, cardTrack: CardTrack, completion: @escaping (Result<Void, AcresBLEError>) -> Void) {
-        self.currentCardId = id
+        currentCardId = id
         self.cardTrack = cardTrack
-        self.onInsertPlayerCard = completion
-        self.insertionState = true
-        startScan()
-        scheduleTimeout(task: timeOutTask)
+        onInsertPlayerCard = completion
+        setupInsertFlow()
+        beginScan()
     }
 
     public func removePlayerCard(completion: @escaping (Result<Void, AcresBLEError>) -> Void) {
-        guard
-            let connectedPeripheral = service.getPeripheral(),
-            connectedPeripheral.state == .connected
-        else {
-            completion(.failure(.notConnected))
-            return
-        }
-        self.insertionState = false
-        self.onRemovePlayerCard = completion
-        writeToPlayerCardInsert(false)
+        onRemovePlayerCard = completion
+        setupRemoveFlow()
+        beginScan()
     }
 
-    // MARK: - CommonControllerProtocol
+    // MARK: - CommonControllerProtocol (Option B: per-flow setup replaces shared setupConnection)
 
-    internal func setupConnection() {
+    internal func setupConnection() {}
+    internal func startScan() {}
+    internal func connect(to device: CBPeripheralProtocol) { service.connect(to: device) }
+    internal func stopScan() { service.stopScanning() }
+
+    // MARK: - Flow installers
+
+    private func setupInsertFlow() {
         service.didDiscoverCharacteristicsFor = { [weak self] peripheral in
-            Logger.debug("didDiscoverCharacteristicsFor: \(peripheral.identifier))")
-            self?.stopScan()
-            self?.timeOutTask.cancel()
-            self?.scheduleOperations()
+            guard let self = self else { return }
+            Logger.debug("insert: didDiscoverCharacteristicsFor \(peripheral.identifier)")
+            self.stopScan()
+            self.timeOutTask.cancel()
+            self.service.readDataOperation(for: .playerCardBusyCharacteristic)
         }
 
-        service.didDisconnect = { [weak self] peripheral, error in
+        service.didDisconnect = { [weak self] _, error in
             guard let self = self else { return }
             if !self.disconnectInitiated {
-                self.onInsertPlayerCard?(.failure(.didDisconnect(error)))
+                self.fireInsertCompletion(.failure(.didDisconnect(error)))
             }
             self.resetState()
         }
 
-        service.didFailToConnect = { [weak self] peripheral, error in
-            if error != nil {
-                self?.onInsertPlayerCard?(.failure(.didFailToConnect()))
-            }
-            self?.resetState()
+        service.didFailToConnect = { [weak self] _, error in
+            guard let self = self else { return }
+            self.fireInsertCompletion(.failure(.didFailToConnect(error)))
+            self.resetState()
         }
 
-        service.didUpdateValueFor = { [weak self] peripheral, value, uuid, error in
-            guard let self = self else { return }
+        service.didUpdateValueFor = { [weak self] _, value, uuid, error in
+            guard let self = self, uuid == .playerCardBusyCharacteristic else { return }
 
-            if uuid == .playerCardBusyCharacteristic {
-                if let error = error {
-                    Logger.error(error.localizedDescription)
-                    self.onInsertPlayerCard?(.failure(.generic(error)))
-                    return
-                }
-
-                if (value?[0].toBool ?? true) {
-                    self.onInsertPlayerCard?(.failure(.playerCardBusy))
-                } else {
-                    guard
-                        let cardTrack = self.cardTrack,
-                        let currentCardId = self.currentCardId,
-                        let currentCardIdData = currentCardId.data(using: .utf8)
-                    else { return }
-
-                    Logger.debug("Card id size in bytes: \(currentCardIdData.count))")
-                    guard currentCardIdData.count < cardTrack.maxBytesSizeToWrite else {
-
-                        Logger.debug("Failed to write in card track \(cardTrack.rawValue), max size bytes is \(cardTrack.maxBytesSizeToWrite)")
-                        self.onInsertPlayerCard?(.failure(cardTrack.maxBytesSizeToWriteError ))
-                        return
-                    }
-
-                    Logger.debug("Write in player card track: \(cardTrack.rawValue))")
-                    self.service.writeDataOperation(currentCardIdData, for: cardTrack.characteristicNumber)
-
-                }
+            if let error = error {
+                Logger.error(error.localizedDescription)
+                self.fireInsertCompletion(.failure(.generic(error)))
+                self.initiateDisconnect()
+                return
             }
+
+            if (value?[0].toBool ?? true) {
+                self.fireInsertCompletion(.failure(.playerCardBusy))
+                self.initiateDisconnect()
+                return
+            }
+
+            guard
+                let cardTrack = self.cardTrack,
+                let currentCardId = self.currentCardId,
+                let cardIdData = currentCardId.data(using: .utf8)
+            else { return }
+
+            Logger.debug("Card id size in bytes: \(cardIdData.count)")
+            guard cardIdData.count < cardTrack.maxBytesSizeToWrite else {
+                Logger.debug("Card ID too long for track \(cardTrack.rawValue); max \(cardTrack.maxBytesSizeToWrite) bytes")
+                self.fireInsertCompletion(.failure(cardTrack.maxBytesSizeToWriteError))
+                self.initiateDisconnect()
+                return
+            }
+
+            self.service.writeDataOperation(cardIdData, for: cardTrack.characteristicNumber)
         }
 
         service.didWriteValueFor = { [weak self] uuid, error in
@@ -118,81 +115,128 @@ public class ElectronicCardInController: ElectronicCardInControllerProtocol, Com
 
             if uuid == .playerCardTrack1Characteristic {
                 if error != nil {
-                    self.onInsertPlayerCard?(.failure(.playerCardTrack1FailedToRecord))
+                    self.fireInsertCompletion(.failure(.playerCardTrack1FailedToRecord))
+                    self.initiateDisconnect()
                     return
                 }
-
-                self.writeToPlayerCardInsert(error == nil)
+                self.writeToPlayerCardInsert(true)
+                return
             }
 
             if uuid == .playerCardTrack2Characteristic {
                 if error != nil {
-                    self.onInsertPlayerCard?(.failure(.playerCardTrack2FailedToRecord))
+                    self.fireInsertCompletion(.failure(.playerCardTrack2FailedToRecord))
+                    self.initiateDisconnect()
                     return
                 }
-
-                self.writeToPlayerCardInsert(error == nil)
+                self.writeToPlayerCardInsert(true)
+                return
             }
 
             if uuid == .playerCardInsertCharacteristic {
-                if let error = error {
-                    self.onInsertPlayerCard?(.failure(.playerCardInsertFail))
-                    self.onRemovePlayerCard?(.failure(.generic(error)))
+                if error != nil {
+                    self.fireInsertCompletion(.failure(.playerCardInsertFail))
+                    self.initiateDisconnect()
                     return
                 }
-
-                switch self.insertionState {
-                case true:
-                    self.onInsertPlayerCard?(.success(()))
-                case false:
-                    self.onRemovePlayerCard?(.success(()))
-                    self.initiateDisconnect()
-                }
+                // Disconnect after every successful insert so the EGM is released
+                // even if the player walks away with the card still inserted.
+                self.fireInsertCompletion(.success(()))
+                self.initiateDisconnect()
             }
         }
     }
 
-    internal func startScan() {
-        setupConnection()
-
-        if let device = service.getPeripheral(), device.state == .connected {
-            scheduleOperations()
-            return
+    private func setupRemoveFlow() {
+        service.didDiscoverCharacteristicsFor = { [weak self] peripheral in
+            guard let self = self else { return }
+            Logger.debug("remove: didDiscoverCharacteristicsFor \(peripheral.identifier)")
+            self.stopScan()
+            self.timeOutTask.cancel()
+            self.writeToPlayerCardInsert(false)
         }
 
+        service.didDisconnect = { [weak self] _, error in
+            guard let self = self else { return }
+            if !self.disconnectInitiated {
+                self.fireRemoveCompletion(.failure(.didDisconnect(error)))
+            }
+            self.resetState()
+        }
+
+        service.didFailToConnect = { [weak self] _, error in
+            guard let self = self else { return }
+            self.fireRemoveCompletion(.failure(.didFailToConnect(error)))
+            self.resetState()
+        }
+
+        service.didUpdateValueFor = { _, _, _, _ in }
+
+        service.didWriteValueFor = { [weak self] uuid, error in
+            guard let self = self, uuid == .playerCardInsertCharacteristic else { return }
+
+            if let error = error {
+                self.fireRemoveCompletion(.failure(.generic(error)))
+                self.initiateDisconnect()
+                return
+            }
+            self.fireRemoveCompletion(.success(()))
+            self.initiateDisconnect()
+        }
+    }
+
+    // MARK: - Scan / connect
+
+    private func beginScan() {
+        // Always scan fresh — disconnect-after-success means we never carry over a connection.
         service.startScanning(allowDuplicates: true)
 
-        service.discovered = { [weak self] peripheral, bleAdvertisingData, rssi in
+        service.discovered = { [weak self] peripheral, _, rssi in
             guard let self = self else { return }
-
             if rssi >= self.rssiLimit {
                 self.connect(to: peripheral)
             }
         }
-    }
 
-    internal func connect(to device: CBPeripheralProtocol) {
-        service.connect(to: device)
-    }
+        timeOutTask = DispatchWorkItem { [weak self] in
+            guard let self = self else { return }
+            if self.service.isScanning() {
+                self.service.stopScanning()
+            }
+            // Abort any in-flight connection so post-timeout discovery callbacks don't fire writes.
+            self.disconnectInitiated = true
+            self.service.cancelCurrentPeripheralConnection()
 
-    internal func stopScan() {
-        service.stopScanning()
+            if self.onInsertPlayerCard != nil {
+                self.fireInsertCompletion(.failure(.scanTimeout))
+            } else if self.onRemovePlayerCard != nil {
+                self.fireRemoveCompletion(.failure(.scanTimeout))
+            }
+            self.resetState()
+        }
+        scheduleTimeout(task: timeOutTask)
     }
 
     // MARK: - Helpers
 
-    private func scheduleOperations() {
-        service.readDataOperation(for: .playerCardBusyCharacteristic)
+    // Fire-and-clear: nil the callback the moment we invoke it so any later disconnect/timeout
+    // path is naturally a no-op. Removes whole class of double-callback bugs.
+    private func fireInsertCompletion(_ result: Result<Void, AcresBLEError>) {
+        let cb = onInsertPlayerCard
+        onInsertPlayerCard = nil
+        cb?(result)
+    }
+
+    private func fireRemoveCompletion(_ result: Result<Void, AcresBLEError>) {
+        let cb = onRemovePlayerCard
+        onRemovePlayerCard = nil
+        cb?(result)
     }
 
     private func writeToPlayerCardInsert(_ bool: Bool) {
-        let byteArray = byteArray(from: bool.toUInt8)
-        let data = Data(byteArray)
+        let bytes = byteArray(from: bool.toUInt8)
+        let data = Data(bytes)
         service.writeDataOperation(data, for: .playerCardInsertCharacteristic)
-    }
-
-    private func disconnect() {
-        service.cancelCurrentPeripheralConnection()
     }
 
     private func initiateDisconnect() {
@@ -202,8 +246,8 @@ public class ElectronicCardInController: ElectronicCardInControllerProtocol, Com
 
     private func resetState() {
         currentCardId = nil
+        cardTrack = nil
         onInsertPlayerCard = nil
-        insertionState = false
         onRemovePlayerCard = nil
         disconnectInitiated = false
     }
