@@ -36,6 +36,7 @@ public class ElectronicCardInController: ElectronicCardInControllerProtocol, Com
 
     public func insertPlayerCard(id: String, cardTrack: CardTrack, completion: @escaping (Result<Void, AcresBLEError>) -> Void) {
         Logger.debug("insertPlayerCard called; peripheral state: \(describe(service.getPeripheral()?.state))")
+        drainStaleCompletions()
         currentCardId = id
         self.cardTrack = cardTrack
         onInsertPlayerCard = completion
@@ -51,6 +52,7 @@ public class ElectronicCardInController: ElectronicCardInControllerProtocol, Com
 
     public func removePlayerCard(completion: @escaping (Result<Void, AcresBLEError>) -> Void) {
         Logger.debug("removePlayerCard called; peripheral state: \(describe(service.getPeripheral()?.state))")
+        drainStaleCompletions()
         onRemovePlayerCard = completion
         setupRemoveFlow()
         if let p = service.getPeripheral(), p.state == .connected {
@@ -110,7 +112,7 @@ public class ElectronicCardInController: ElectronicCardInControllerProtocol, Com
                 return
             }
 
-            if (value?[0].toBool ?? true) {
+            if (value?.first?.toBool ?? true) {
                 self.terminateInsertFlow(with: .failure(.playerCardBusy))
                 return
             }
@@ -337,6 +339,24 @@ public class ElectronicCardInController: ElectronicCardInControllerProtocol, Com
         let cb = onRemovePlayerCard
         onRemovePlayerCard = nil
         cb?(result)
+    }
+
+    // If a prior terminate*Flow stashed an outcome that didDisconnect hasn't yet
+    // delivered, fire it synchronously before the new public call mutates any
+    // per-flow state. Preserves the contract that the caller's completion always
+    // fires. Leaves `disconnectInitiated` set so the in-flight disconnect still
+    // routes to case 3 in the new flow's handler.
+    private func drainStaleCompletions() {
+        if let outcome = pendingInsertOutcome {
+            pendingInsertOutcome = nil
+            currentCardId = nil
+            cardTrack = nil
+            fireInsertCompletion(outcome)
+        }
+        if let outcome = pendingRemoveOutcome {
+            pendingRemoveOutcome = nil
+            fireRemoveCompletion(outcome)
+        }
     }
 
     private func writeToPlayerCardInsert(_ bool: Bool) {
