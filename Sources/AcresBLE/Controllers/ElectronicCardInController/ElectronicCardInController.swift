@@ -51,6 +51,11 @@ public class ElectronicCardInController: ElectronicCardInControllerProtocol, Com
         }
         self.insertionState = false
         self.onRemovePlayerCard = completion
+        // Re-install our closures on the shared BLEService. A prior SlotAndTable op
+        // (e.g. findDevice) may have replaced them, in which case our didWriteValueFor
+        // branch for .playerCardInsertCharacteristic — which fires onRemovePlayerCard
+        // and initiateDisconnect — would never run.
+        setupConnection()
         writeToPlayerCardInsert(false)
     }
 
