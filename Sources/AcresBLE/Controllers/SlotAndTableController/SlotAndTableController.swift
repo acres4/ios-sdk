@@ -110,6 +110,26 @@ public class SlotAndTableController: SlotAndTableControllerProtocol, CommonContr
             return
         }
         onDisconnectFromDevice = completion
+
+        // The BLEService is shared with ElectronicCardInController. After an
+        // insertPlayerCard/removePlayerCard call, service.didDisconnect points at
+        // ElectronicCardIn's closure — which never fires onDisconnectFromDevice and
+        // would leave this completion dangling forever. Re-install ours.
+        service.didDisconnect = { [weak self] peripheral, error in
+            guard let self = self else { return }
+            let cb = self.onDisconnectFromDevice
+            self.onDisconnectFromDevice = nil
+            if self.disconnectInitiated {
+                Logger.debug("didDisconnect --> initiated")
+                cb?(.success(()))
+            } else {
+                Logger.debug("didDisconnect --> NOT initiated")
+                cb?(.failure(.didDisconnect(error)))
+                self.onFindDevice?(.failure(.didDisconnect(error)))
+            }
+            self.resetState()
+        }
+
         initiateDisconnect()
     }
     

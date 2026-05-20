@@ -19,14 +19,9 @@ public class ElectronicCardInController: ElectronicCardInControllerProtocol, Com
     private var currentCardId: String?
     private var cardTrack: CardTrack?
     private var onInsertPlayerCard: ((Result<Void, AcresBLEError>) -> Void)?
-    private var pendingInsertOutcome: Result<Void, AcresBLEError>?
 
     // Remove-flow state
     private var onRemovePlayerCard: ((Result<Void, AcresBLEError>) -> Void)?
-    private var pendingRemoveOutcome: Result<Void, AcresBLEError>?
-
-    // Shared
-    private var disconnectInitiated: Bool = false
 
     // Per-call timeout. DispatchWorkItem can only be scheduled once, so we replace
     // it on every public call instead of using a `lazy var`.
@@ -36,7 +31,6 @@ public class ElectronicCardInController: ElectronicCardInControllerProtocol, Com
 
     public func insertPlayerCard(id: String, cardTrack: CardTrack, completion: @escaping (Result<Void, AcresBLEError>) -> Void) {
         Logger.debug("insertPlayerCard called; peripheral state: \(describe(service.getPeripheral()?.state))")
-        drainStaleCompletions()
         currentCardId = id
         self.cardTrack = cardTrack
         onInsertPlayerCard = completion
@@ -52,7 +46,6 @@ public class ElectronicCardInController: ElectronicCardInControllerProtocol, Com
 
     public func removePlayerCard(completion: @escaping (Result<Void, AcresBLEError>) -> Void) {
         Logger.debug("removePlayerCard called; peripheral state: \(describe(service.getPeripheral()?.state))")
-        drainStaleCompletions()
         onRemovePlayerCard = completion
         setupRemoveFlow()
         if let p = service.getPeripheral(), p.state == .connected {
@@ -204,99 +197,53 @@ public class ElectronicCardInController: ElectronicCardInControllerProtocol, Com
 
     // Disconnect / fail-to-connect handlers
     //
-    // Three cases per flow:
-    //   1. pendingOutcome != nil — terminate*Flow set an outcome and triggered the
-    //      disconnect. Fire it now and reset.
-    //   2. pendingOutcome == nil, disconnectInitiated == false — the peripheral
-    //      dropped on its own (out of range, EGM rebooted). Fire .didDisconnect
-    //      failure and reset.
-    //   3. pendingOutcome == nil, disconnectInitiated == true — stale disconnect
-    //      from a *prior* op whose handlers were replaced before its disconnect
-    //      completed. Don't fire anything, don't reset our new state — just clear
-    //      the flag so our own future disconnect path works.
+    // The controller no longer initiates disconnects internally — the consumer
+    // owns the connection lifecycle via slotAndTableController.disconnectFromDevice.
+    // So any disconnect/fail-to-connect that fires here is either:
+    //   - An in-flight op being interrupted by the EGM/radio dropping (or by the
+    //     consumer disconnecting mid-op): fire failure on the active completion.
+    //   - A disconnect after the op already completed (consumer-initiated cleanup):
+    //     completion is already nil, so fire is a no-op.
 
     private func handleDisconnectForInsertFlow(error: Error?) {
-        if let outcome = pendingInsertOutcome {
-            pendingInsertOutcome = nil
-            fireInsertCompletion(outcome)
-            resetState()
-            return
-        }
-        if !disconnectInitiated {
+        if onInsertPlayerCard != nil {
             fireInsertCompletion(.failure(.didDisconnect(error)))
-            resetState()
-            return
         }
-        disconnectInitiated = false
+        resetState()
     }
 
     private func handleFailToConnectForInsertFlow(error: Error?) {
-        if let outcome = pendingInsertOutcome {
-            pendingInsertOutcome = nil
-            fireInsertCompletion(outcome)
-            resetState()
-            return
-        }
         if onInsertPlayerCard != nil {
             fireInsertCompletion(.failure(.didFailToConnect(error)))
-            resetState()
         }
+        resetState()
     }
 
     private func handleDisconnectForRemoveFlow(error: Error?) {
-        if let outcome = pendingRemoveOutcome {
-            pendingRemoveOutcome = nil
-            fireRemoveCompletion(outcome)
-            resetState()
-            return
-        }
-        if !disconnectInitiated {
+        if onRemovePlayerCard != nil {
             fireRemoveCompletion(.failure(.didDisconnect(error)))
-            resetState()
-            return
         }
-        disconnectInitiated = false
+        resetState()
     }
 
     private func handleFailToConnectForRemoveFlow(error: Error?) {
-        if let outcome = pendingRemoveOutcome {
-            pendingRemoveOutcome = nil
-            fireRemoveCompletion(outcome)
-            resetState()
-            return
-        }
         if onRemovePlayerCard != nil {
             fireRemoveCompletion(.failure(.didFailToConnect(error)))
-            resetState()
         }
+        resetState()
     }
 
-    // Terminate helpers
-    //
-    // The contract: the user's completion handler always fires after the BLE
-    // connection has been fully torn down. If a peripheral is connected (or
-    // mid-connection), defer the outcome to didDisconnect/didFailToConnect. If no
-    // peripheral exists yet (e.g. scan timeout before any device was discovered),
-    // fire immediately.
+    // Terminate helpers — fire the completion immediately and reset per-flow state.
+    // The connection stays open; consumer disconnects via slotAndTableController.
 
     private func terminateInsertFlow(with outcome: Result<Void, AcresBLEError>) {
-        if let p = service.getPeripheral(), p.state != .disconnected {
-            pendingInsertOutcome = outcome
-            initiateDisconnect()
-        } else {
-            fireInsertCompletion(outcome)
-            resetState()
-        }
+        fireInsertCompletion(outcome)
+        resetState()
     }
 
     private func terminateRemoveFlow(with outcome: Result<Void, AcresBLEError>) {
-        if let p = service.getPeripheral(), p.state != .disconnected {
-            pendingRemoveOutcome = outcome
-            initiateDisconnect()
-        } else {
-            fireRemoveCompletion(outcome)
-            resetState()
-        }
+        fireRemoveCompletion(outcome)
+        resetState()
     }
 
     // Scan / connect
@@ -341,33 +288,10 @@ public class ElectronicCardInController: ElectronicCardInControllerProtocol, Com
         cb?(result)
     }
 
-    // If a prior terminate*Flow stashed an outcome that didDisconnect hasn't yet
-    // delivered, fire it synchronously before the new public call mutates any
-    // per-flow state. Preserves the contract that the caller's completion always
-    // fires. Leaves `disconnectInitiated` set so the in-flight disconnect still
-    // routes to case 3 in the new flow's handler.
-    private func drainStaleCompletions() {
-        if let outcome = pendingInsertOutcome {
-            pendingInsertOutcome = nil
-            currentCardId = nil
-            cardTrack = nil
-            fireInsertCompletion(outcome)
-        }
-        if let outcome = pendingRemoveOutcome {
-            pendingRemoveOutcome = nil
-            fireRemoveCompletion(outcome)
-        }
-    }
-
     private func writeToPlayerCardInsert(_ bool: Bool) {
         let bytes = byteArray(from: bool.toUInt8)
         let data = Data(bytes)
         service.writeDataOperation(data, for: .playerCardInsertCharacteristic)
-    }
-
-    private func initiateDisconnect() {
-        disconnectInitiated = true
-        service.cancelCurrentPeripheralConnection()
     }
 
     private func resetState() {
@@ -375,8 +299,5 @@ public class ElectronicCardInController: ElectronicCardInControllerProtocol, Com
         cardTrack = nil
         onInsertPlayerCard = nil
         onRemovePlayerCard = nil
-        pendingInsertOutcome = nil
-        pendingRemoveOutcome = nil
-        disconnectInitiated = false
     }
 }
