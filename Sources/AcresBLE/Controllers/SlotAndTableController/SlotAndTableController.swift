@@ -1,10 +1,9 @@
 //
 //  SlotAndTableController.swift
-//  
+//
 //
 //  Created by Jozo Mostarac on 22.07.2022..
 //
-
 import Foundation
 
 public class SlotAndTableController: SlotAndTableControllerProtocol, CommonControllerProtocol {
@@ -15,7 +14,12 @@ public class SlotAndTableController: SlotAndTableControllerProtocol, CommonContr
     }
         
     internal var rssiLimit: Int {
-        return -45 // experiment based value
+//        return -100 // experiment based value
+        return -55 // experiment based value
+    }
+    
+    internal var countLimit: Int{
+        return 15
     }
     
     // Internal state
@@ -28,6 +32,8 @@ public class SlotAndTableController: SlotAndTableControllerProtocol, CommonContr
     private var amountRequested: Int?
     private var operationScheduled: Bool = false
     private var connectedToTable: Bool = false
+    private var currentCount: Int = 0
+    private var deviceMap: [UUID: Int] = [:]
     
     // Timeout Task
     internal lazy var timeOutTask = DispatchWorkItem { [weak self] in
@@ -104,6 +110,10 @@ public class SlotAndTableController: SlotAndTableControllerProtocol, CommonContr
             return
         }
         onDisconnectFromDevice = completion
+        // Re-install our closures on the shared BLEService. A prior ElectronicCardIn op
+        // may have replaced them, in which case our didDisconnect — which fires
+        // onDisconnectFromDevice success — would never run.
+        setupConnection()
         initiateDisconnect()
     }
     
@@ -160,7 +170,7 @@ public class SlotAndTableController: SlotAndTableControllerProtocol, CommonContr
                             // do nothing here, received amount should come through the .amountCharacteristic
                         }
                     }
-            
+                    print(serial)
                     self.onFindDevice?(.success(serial))
                 } else {
                     self.onFindDevice?(.failure(.unknown))
@@ -233,9 +243,29 @@ public class SlotAndTableController: SlotAndTableControllerProtocol, CommonContr
         service.discovered = { [weak self] peripheral, bleAdvertisingData, rssi in
             guard let self = self else { return }
             
+            var currentCount = 0
+            
+            // Check for key in the current map, if it doesn't exist add it
+            let keyExists = self.deviceMap[peripheral.identifier] != nil
+            if !keyExists {
+                self.deviceMap[peripheral.identifier] = 0
+            }
+            // Create temp variable to adjust values to the map
+            currentCount = self.deviceMap[peripheral.identifier] ?? 0
             if rssi >= self.rssiLimit {
+                currentCount = currentCount + 1
+                self.deviceMap[peripheral.identifier] = currentCount
+            } else if rssi > -99 {
+                // if we get an good read that was less than our minimum reset the count in the map
+                currentCount = 0
+                self.deviceMap[peripheral.identifier] = currentCount
+            }
+            if self.deviceMap[peripheral.identifier] ?? 0 > self.countLimit {
+                print(self.deviceMap)
+                self.deviceMap = [:]
                 self.connect(to: peripheral)
             }
+        
         }
     }
     
