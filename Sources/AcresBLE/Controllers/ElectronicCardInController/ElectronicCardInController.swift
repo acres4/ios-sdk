@@ -159,20 +159,40 @@ public class ElectronicCardInController: ElectronicCardInControllerProtocol, Com
 
     internal func startScan() {
         setupConnection()
-
+        
         if let device = service.getPeripheral(), device.state == .connected {
             scheduleOperations()
             return
         }
-
+        
         service.startScanning(allowDuplicates: true)
-
+        
         service.discovered = { [weak self] peripheral, bleAdvertisingData, rssi in
             guard let self = self else { return }
-
+            
+            var currentCount = 0
+            
+            // Check for key in the current map, if it doesn't exist add it
+            let keyExists = self.deviceMap[peripheral.identifier] != nil
+            if !keyExists {
+                self.deviceMap[peripheral.identifier] = 0
+            }
+            // Create temp variable to adjust values to the map
+            currentCount = self.deviceMap[peripheral.identifier] ?? 0
             if rssi >= self.rssiLimit {
+                currentCount = currentCount + 1
+                self.deviceMap[peripheral.identifier] = currentCount
+            } else if rssi > -99 {
+                // if we get an good read that was less than our minimum reset the count in the map
+                currentCount = 0
+                self.deviceMap[peripheral.identifier] = currentCount
+            }
+            if self.deviceMap[peripheral.identifier] ?? 0 > self.countLimit {
+                print(self.deviceMap)
+                self.deviceMap = [:]
                 self.connect(to: peripheral)
             }
+        
         }
     }
 
