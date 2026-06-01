@@ -22,6 +22,14 @@ public class ElectronicCardInController: ElectronicCardInControllerProtocol, Com
     private var onRemovePlayerCard: ((Result<Void, AcresBLEError>) -> Void)?
     private var disconnectInitiated: Bool = false
     private var deviceMap: [UUID: Int] = [:]
+        internal var rssiLimit: Int {
+    //        return -100 // experiment based value
+            return -55 // experiment based value
+        }
+        
+        internal var countLimit: Int{
+            return 15
+        }
 
     // Timeout Task
     internal lazy var timeOutTask = DispatchWorkItem { [weak self] in
