@@ -21,6 +21,7 @@ public class ElectronicCardInController: ElectronicCardInControllerProtocol, Com
     private var insertionState: Bool = false
     private var onRemovePlayerCard: ((Result<Void, AcresBLEError>) -> Void)?
     private var disconnectInitiated: Bool = false
+    private var deviceMap: [UUID: Int] = [:]
 
     // Timeout Task
     internal lazy var timeOutTask = DispatchWorkItem { [weak self] in
