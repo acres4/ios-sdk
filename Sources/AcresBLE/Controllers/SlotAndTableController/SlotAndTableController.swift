@@ -110,6 +110,10 @@ public class SlotAndTableController: SlotAndTableControllerProtocol, CommonContr
             return
         }
         onDisconnectFromDevice = completion
+        // Re-install our closures on the shared BLEService. A prior ElectronicCardIn op
+        // may have replaced them, in which case our didDisconnect — which fires
+        // onDisconnectFromDevice success — would never run.
+        setupConnection()
         initiateDisconnect()
     }
     
