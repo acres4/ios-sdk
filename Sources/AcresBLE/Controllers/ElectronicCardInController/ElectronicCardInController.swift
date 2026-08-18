@@ -31,6 +31,20 @@ public class ElectronicCardInController: ElectronicCardInControllerProtocol, Com
             return 15
         }
 
+        /// Settle time between GATT operations during card-in. Some EGMs report
+        /// discovery complete before their GATT server will actually serve the
+        /// player-presence characteristics, which shows up as a clean connect
+        /// followed by track/insert writes that never take.
+        internal var operationDelay: TimeInterval {
+            return 0.5
+        }
+
+    /// Runs `block` after `operationDelay`. Callbacks arrive on the central
+    /// manager's queue; hopping to main keeps the sequencing predictable.
+    private func afterOperationDelay(_ block: @escaping () -> Void) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + operationDelay, execute: block)
+    }
+
     // Timeout Task
     internal lazy var timeOutTask = DispatchWorkItem { [weak self] in
         if self?.service.isScanning() ?? false {
@@ -73,9 +87,13 @@ public class ElectronicCardInController: ElectronicCardInControllerProtocol, Com
     internal func setupConnection() {
         service.didDiscoverCharacteristicsFor = { [weak self] peripheral in
             Logger.debug("didDiscoverCharacteristicsFor: \(peripheral.identifier))")
-            self?.stopScan()
-            self?.timeOutTask.cancel()
-            self?.scheduleOperations()
+            guard let self = self else { return }
+            self.stopScan()
+            self.timeOutTask.cancel()
+            self.afterOperationDelay { [weak self] in
+                Logger.debug("Reading player card busy after settle delay")
+                self?.scheduleOperations()
+            }
         }
 
         service.didDisconnect = { [weak self] peripheral, error in
@@ -121,7 +139,10 @@ public class ElectronicCardInController: ElectronicCardInControllerProtocol, Com
                     }
 
                     Logger.debug("Write in player card track: \(cardTrack.rawValue))")
-                    self.service.writeDataOperation(currentCardIdData, for: cardTrack.characteristicNumber)
+                    self.afterOperationDelay { [weak self] in
+                        Logger.debug("Writing player card track after settle delay")
+                        self?.service.writeDataOperation(currentCardIdData, for: cardTrack.characteristicNumber)
+                    }
 
                 }
             }
@@ -136,7 +157,10 @@ public class ElectronicCardInController: ElectronicCardInControllerProtocol, Com
                     return
                 }
 
-                self.writeToPlayerCardInsert(error == nil)
+                let track1Succeeded = error == nil
+                self.afterOperationDelay { [weak self] in
+                    self?.writeToPlayerCardInsert(track1Succeeded)
+                }
             }
 
             if uuid == .playerCardTrack2Characteristic {
@@ -145,7 +169,10 @@ public class ElectronicCardInController: ElectronicCardInControllerProtocol, Com
                     return
                 }
 
-                self.writeToPlayerCardInsert(error == nil)
+                let track2Succeeded = error == nil
+                self.afterOperationDelay { [weak self] in
+                    self?.writeToPlayerCardInsert(track2Succeeded)
+                }
             }
 
             if uuid == .playerCardInsertCharacteristic {
