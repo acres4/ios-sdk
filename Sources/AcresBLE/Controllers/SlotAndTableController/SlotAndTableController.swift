@@ -19,7 +19,7 @@ public class SlotAndTableController: SlotAndTableControllerProtocol, CommonContr
     }
     
     internal var countLimit: Int{
-        return 15
+        return 6
     }
     
     // Internal state

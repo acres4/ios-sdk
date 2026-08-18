@@ -11,6 +11,13 @@ public final class Logger {
     public static let shared = Logger()
     private init() {}
 
+    /// Optional sink so the host app can surface SDK logs somewhere readable on
+    /// device. `debugPrint` only reaches an attached console, which is no help
+    /// with the phone untethered on a casino floor. Set once at startup; called
+    /// on whichever queue emitted the log, so hop threads if the consumer needs
+    /// the main one.
+    public static var sink: ((String) -> Void)?
+
     enum Level {
         case none
         case error
@@ -39,6 +46,7 @@ public final class Logger {
         let fileName = URL(fileURLWithPath: file).lastPathComponent.components(separatedBy: ".").first ?? ""
         let msg = "\(level.string): \(fileName).\(function)[\(line)]: \(message)"
         debugPrint(msg)
+        sink?(msg)
     }
 }
 
