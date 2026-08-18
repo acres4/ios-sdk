@@ -20,6 +20,10 @@ class BLEService: NSObject, BLEServiceProtocol, PeripheralIdentificationProtocol
     private let operationQueue: OperationQueue
     private var peripheral: CBPeripheral?
     private let central = BLECentral.shared
+
+    /// Upper bound on a single GATT read/write before it is reported as failed.
+    internal var operationTimeout: TimeInterval = 10
+    private var pendingOperation: DispatchWorkItem?
     
     init(operationQueue: OperationQueue = OperationQueue()) {
         self.operationQueue = operationQueue
@@ -149,11 +153,13 @@ class BLEService: NSObject, BLEServiceProtocol, PeripheralIdentificationProtocol
             Logger.debug("OP: readDataFor: \(characteristic.uuid.uuidString)")
             peripheral.readValue(for: characteristic)
             suspendQueue(true)
+            beginOperation(uuid, isWrite: false)
             Logger.debug("readDataFor \(uuid) SUSPENDED")
             return
         }
         suspendQueue(false)
         Logger.error("Can't find characteristic \(uuid.uuidString)")
+        failOperation(uuid, isWrite: false, reason: "characteristic not found")
     }
 
     private func writeData(_ data: Data, for uuid: CBUUID) {
@@ -161,11 +167,53 @@ class BLEService: NSObject, BLEServiceProtocol, PeripheralIdentificationProtocol
             Logger.debug("OP: writeData \(characteristic.uuid.uuidString) : \(data.hexString)")
             peripheral.writeValue(data, for: characteristic, type: .withResponse)
             suspendQueue(true)
+            beginOperation(uuid, isWrite: true)
             Logger.debug("writeData \(uuid) SUSPENDED")
             return
         }
         suspendQueue(false)
         Logger.error("Can't find characteristic \(uuid.uuidString)")
+        failOperation(uuid, isWrite: true, reason: "characteristic not found")
+    }
+
+    // MARK: - GATT operation watchdog
+    //
+    // A read/write suspends the operation queue until the matching delegate
+    // callback resumes it. If the EGM never answers — or the characteristic was
+    // missing — nothing ever resumes it and no completion handler is called, so
+    // the caller hangs forever with no error. These bound every operation and
+    // report a failure through the normal callback path instead.
+
+    /// Reports an operation failure through the same callbacks a real GATT error
+    /// would use, so callers need no special-casing.
+    private func failOperation(_ uuid: CBUUID, isWrite: Bool, reason: String) {
+        let error = NSError(
+            domain: "AcresBLE",
+            code: -1,
+            userInfo: [NSLocalizedDescriptionKey: "GATT operation failed (\(reason)): \(uuid.uuidString)"])
+        if isWrite {
+            didWriteValueFor(uuid, error)
+        } else if let peripheral = getPeripheral() {
+            didUpdateValueFor(peripheral, nil, uuid, .cbError(error))
+        }
+    }
+
+    private func beginOperation(_ uuid: CBUUID, isWrite: Bool) {
+        endOperation()
+        let task = DispatchWorkItem { [weak self] in
+            guard let self = self else { return }
+            Logger.error("GATT operation timed out: \(uuid.uuidString)")
+            self.pendingOperation = nil
+            self.suspendQueue(false)
+            self.failOperation(uuid, isWrite: isWrite, reason: "timed out")
+        }
+        pendingOperation = task
+        DispatchQueue.main.asyncAfter(deadline: .now() + operationTimeout, execute: task)
+    }
+
+    private func endOperation() {
+        pendingOperation?.cancel()
+        pendingOperation = nil
     }
 }
 // MARK: - CBCentralManagerDelegate
@@ -248,6 +296,7 @@ extension BLEService: CBPeripheralDelegate {
         var btError: BluetoothError? = nil
         error.map { btError = .cbError($0) }
             
+        endOperation()
         suspendQueue(false)
         didUpdateValueFor(peripheral, characteristic.value, characteristic.uuid, btError)
     }
@@ -257,6 +306,7 @@ extension BLEService: CBPeripheralDelegate {
         didWriteValueFor characteristic: CBCharacteristic,
         error: Error?) {
 
+        endOperation()
         suspendQueue(false)
         didWriteValueFor(characteristic.uuid, error)
     }
@@ -266,6 +316,7 @@ extension BLEService: CBPeripheralDelegate {
         didUpdateNotificationStateFor characteristic: CBCharacteristic,
         error: Error?) {
 
+        endOperation()
         suspendQueue(false)
     }
 }
