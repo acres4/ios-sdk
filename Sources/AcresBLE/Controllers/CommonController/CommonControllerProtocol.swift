@@ -35,9 +35,10 @@ extension CommonControllerProtocol {
         return -65
     }
     
-    // Set timeout value for scanning operations.
+    // Set timeout value for scanning operations. Covers scan + connect +
+    // service/characteristic discovery, not just the scan itself.
     internal var timeOutValue: Double {
-        return 10
+        return 15
     }
     
     internal func scheduleTimeout(task: DispatchWorkItem) {
